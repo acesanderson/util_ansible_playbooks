@@ -1,6 +1,6 @@
 ---
 - name: Dev environment for Ubuntu
-  hosts: Otis, Botvinnik
+  hosts: Larsen, Gotham, Cheet
   become: yes
   gather_facts: false
   tasks:

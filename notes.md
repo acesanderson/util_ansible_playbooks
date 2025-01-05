@@ -1,3 +1,8 @@
+# Notes from 1-4-2025
+- To be able to run sudo across multiple hosts, I use a bash script (sudo_at_hosts) which uses ansible vaults with sudo passwords.
+
+
+# Old notes
 ## Purpose of this directory
 - I will be using Ansible to manage config across my computers
 - this is all the hosts defined in my ~/.ssh/config file

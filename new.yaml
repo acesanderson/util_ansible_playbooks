@@ -1,0 +1,14 @@
+- name: Perform package updates
+  hosts: Larsen, Gotham, Cheet, Botvinnik
+  gather_facts: false
+  tasks:
+    - name: Update all packages on system
+      ansible.builtin.apt:
+        name: "*"
+        state: latest
+    - name: Collect current Linux version
+      ansible.builtin.shell: cat /etc/os-release | grep PRETTY_NAME
+      register: os_version_after
+    - name: Display the os version
+      ansible.builtin.debug:
+        var: os_version_after
