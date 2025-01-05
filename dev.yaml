@@ -12,6 +12,114 @@
       ansible.builtin.apt:
         upgrade: dist
 
+    - name: install specific packages
+      ansible.builtin.apt:
+        name:
+          - tmux
+          - curl 
+          - nodejs
+          - npm
+          - build-essential
+          - git
+          - wget
+        state: present 
+
+
+  # Nvim
+  - name: Clone nvim repository
+    git:
+      repo: https://github.com/neovim/neovim
+      dest: "{{ ansible_env.HOME }}/src/nvim"
+      clone: true
+      version: "v6.0.0"
+
+  - name: Install nvim build dependencies
+    become: true
+    apt:
+      name:
+        - ninja-build
+        - gettext
+        - libtool
+        - libtool-bin
+        - autoconf
+        - automake
+        - cmake
+        - g++
+        - pkg-config
+        - unzip
+        - curl
+      state: present
+
+  - name: Build nvim release version
+    community.general.make:
+      chdir: deps/neovim
+      params:
+        CMAKE_BUILD_TYPE: Release
+
+  - name: Install nvim release version
+    become: true
+    community.general.make:
+      chdir: deps/neovim
+      target: install
+
+# Git magic
+  - name: Git dotfiles
+    hosts: all
+    gather_facts: false
+    tasks:
+      - name: Tmux configs
+        git:
+          repo: 'https://github.com/acesanderson/util_tmux_settings'
+          dest: '~/.config/tmux'
+          clone: yes
+          update: yes
+      - name: Nvim configs
+        git:
+          repo: 'https://github.com/acesanderson/util_nvim_settings'
+          dest: '~/.config/nvim'
+          clone: yes
+          update: yes
+      - name: Docker configs
+        git:
+          repo: 'https://github.com/acesanderson/util_dockerfiles'
+          dest: '~/Docker'
+          clone: yes
+          update: yes
+
+  - name: Brian_Code python projects
+    hosts: all
+    gather_facts: false
+    vars:
+      base_dir: "Brian_Code"
+      repositories:
+        - repo_url: "https://github.com/yourusername/repo1.git"
+          dest_dir: "project1"
+        - repo_url: "https://github.com/yourusername/repo2.git"
+          dest_dir: "project2"
+        # Add more repositories as needed
+
+  tasks:
+    - name: Ensure base directory exists
+      file:
+        path: "{{ base_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Clone repositories
+      git:
+        repo: "{{ item.repo_url }}"
+        dest: "{{ base_dir }}/{{ item.dest_dir }}"
+        clone: yes
+        update: yes
+      loop: "{{ repositories }}"
+      register: git_results
+
+    - name: Show clone results
+      debug:
+        msg: "Cloned {{ item.item.repo_url }} to {{ item.item.dest_dir }}"
+      loop: "{{ git_results.results }}"
+      when: item.changed
+
     # Check if we need to install Python 3.12.4
     - name: Check that the /usr/local/bin/python3.6 exists
       command: which python3.12
@@ -94,3 +202,10 @@
         state: absent
       when: python_exists == False
 
+# python venv
+# bashrc, bash_profile: ensure that base strings are included
+# pass
+# ssh keygen
+# github repos
+# apt install: tmux, black, nvim, etc.
+#        curl wget git build-essential tmux nodejs npm 
