@@ -1,0 +1,96 @@
+---
+- name: Dev environment for Ubuntu
+  hosts: Otis, Botvinnik
+  become: yes
+  gather_facts: false
+  tasks:
+    - name: update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: upgrade all packages
+      ansible.builtin.apt:
+        upgrade: dist
+
+    # Check if we need to install Python 3.12.4
+    - name: Check that the /usr/local/bin/python3.6 exists
+      command: which python3.12
+      register: python_result
+      ignore_errors: yes # Ignore errors if python3.12 not found
+
+    - name: Set exists boolean
+      set_fact:
+        python_exists: "{{ python_result.stdout != '' }}"
+
+    - name: Display the path or indicate not found
+      debug:
+        msg: "Python 3.12.4 is installed at {{ python_result.stdout }}"
+      when: python_exists
+
+    - name: Indicate that Python 3.12.4 is not installed
+      debug:
+        msg: "Python 3.12.4 is not installed"
+      when: python_exists == False
+
+    # Install Python 3.12.4
+    - name: Install python build dependencies
+      ansible.builtin.apt:
+        name:
+           - name: Install Python build dependencies
+             apt:
+               name:
+               - build-essential
+               - libssl-dev
+               - zlib1g-dev
+               - libbz2-dev
+               - libreadline-dev
+               - libsqlite3-dev
+               - libncursesw5-dev
+               - xz-utils
+               - tk-dev
+               - libxml2-dev
+               - libxmlsec1-dev
+               - libffi-dev
+               - liblzma-dev
+             state: present
+             become: yes
+      when: python_exists == False
+
+    # Set up python dev environment
+    # https://www.python.org/ftp/python/3.12.4/Python-3.12.4.tar.xz
+    - name: download python tarball
+      get_url:
+        url: https://www.python.org/ftp/python/3.12.4/Python-3.12.4.tar.xz
+        dest: /tmp/Python-3.12.4.tar.xz
+        mode: '0644'
+      when: python_exists == False
+
+    - name: Extract the tarball
+      unarchive:
+        src: /tmp/Python-3.12.4.tar.xz
+        dest: /tmp/
+        remote_src: yes
+      when: python_exists == False
+
+    - name: Build and install Python
+      shell: |
+        cd /tmp/Python-3.12.4
+        ./configure --enable-optimizations
+        make -j $(nproc)
+        make altinstall
+      args:
+        creates: /usr/local/bin/python3.12
+      when: python_exists == False
+
+    - name: Clean up
+      file:
+        path: /tmp/Python-3.12.4
+        state: absent
+      when: python_exists == False
+
+    - name: Clean up tarball
+      file:
+        path: /tmp/Python-3.12.4.tar.xz
+        state: absent
+      when: python_exists == False
+
