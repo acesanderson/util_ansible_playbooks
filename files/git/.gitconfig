@@ -1,0 +1,20 @@
+[user]
+    email = brian.briananderson@gmail.com	
+    name = acesanderson
+
+[core]
+    editor = nvim
+    excludesfile = ~/.gitignore_global
+
+[pull]
+    rebase = true
+
+[init]
+    defaultBranch = main
+
+[merge]
+    conflictstyle = diff3
+
+[init]
+    templateDir = ~/.git-templates
+

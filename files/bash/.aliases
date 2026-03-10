@@ -1,0 +1,215 @@
+# All aliases go here; see also .functions.zsh for functions and .secrets.zsh for sensitive info
+# At the bottom we also source .custom_aliases.sh for any machine-specific aliases / overrides
+
+# Traversal aliases
+## Directory navigation
+alias cd.="cd .."
+alias cd..="cd ../.."
+alias cd...="cd ../../.."
+alias cd....="cd ../../../.."
+alias in="cdin"
+alias out="cd .."
+alias lsd="ls -d */"
+alias lss="ls -a"
+alias lsr="ls -Art | tail -n 10"
+alias lsl="du -ah . | sort -rh | head -n 10"
+alias lslatest="ls -Art | tail -n 1"
+alias lsbiggest="ls -Sah | head -n 10"
+## XDG standard dirs
+alias cache='cd $HOME/.cache'           # XDG_CACHE_HOME
+alias config='cd $HOME/config'          # XDG_CONFIG_HOME
+alias scripts="cd $HOME/.local/bin"   # XDG_BIN_HOME
+alias share='cd $HOME/.local/share'      # XDG_DATA_HOME
+alias state='cd $HOME/.local/state'      # XDG_STATE_HOME
+## Pinned locations
+alias bc="cd $HOME/Brian_Code/"
+alias blog="cd $HOME/blog"
+alias cld="cd $HOME/.claude/"
+alias config="cd $HOME/.config"
+alias documents="cd $HOME/Documents"
+alias downloads="cd $HOME/Downloads"
+alias fonts="cd /usr/share/fonts"
+alias home="cd $HOME"
+alias inbox="cd '$ONEDRIVE/email-sync/inbox'"
+alias job="cd $HOME/job_application"
+alias lic="cd $HOME/licensing"
+alias morphy="cd $HOME/morphy"
+alias nas="cd /mnt/nas"
+alias images="cd $NAS/generated_images"
+alias pictures="cd $HOME/Pictures"
+alias podcasts="cd $HOME/Podcasts"
+alias sandbox="cd $HOME/Brian_Code/sandbox"
+alias skills="cd $HOME/.config/conduit/skills"
+alias vibe="cd $HOME/vibe"
+alias wallpapers="cd $HOME/Pictures/Wallpapers"
+alias work="cd $HOME/Brian_Code/work"
+## Within python projects
+alias cdd="cddev" # Go to dev directory (within python project)
+alias cde="cdevals" # Go to evals directory (within python project)
+alias cdp="cdpkg" # Go to package directory (within src/)
+alias cdr="cdroot" # Go to root of current git repo
+alias cdt="cdtests" # Go to tests directory (within python project)
+alias cs="cd src"
+alias csin="cd src && cdin"
+## All repos
+alias cdaquifer="cd $HOME/Brian_Code/aquifer-project/src/aquifer"
+alias cdask="cd $HOME/Brian_Code/ask-project/src/ask"
+alias cdconduit="cd $HOME/Brian_Code/conduit-project/src/conduit"
+alias cdcorsair="cd $HOME/Brian_Code/corsair-project/src/corsair"
+alias cddot="cd $HOME/.dotfiles"
+alias cdhaddock="cd $HOME/Brian_Code/haddock-project/src/haddock"
+alias cdkramer="cd $HOME/Brian_Code/kramer-project/src/kramer"
+alias cdmentor="cd $HOME/Brian_Code/mentor-project/src/mentor"
+alias cdmeta="cd $HOME/Brian_Code/metaprompt-project/src/metaprompt"
+alias cdmorgan="cd $HOME/Brian_Code/morgan-project/src/morgan"
+alias cdtap="cd $HOME/Brian_Code/tap-project/src/tap"
+alias cdutils="cd $HOME/Brian_Code/utils-project/src/utils"
+alias cdwinnow="cd $HOME/Brian_Code/winnow-project/src/winnow"
+alias cdpipelines="cd $HOME/Brian_Code/pipelines-project/src/pipelines"
+alias cdwaterworks="cd $HOME/Brian_Code/waterworks-project/src/waterworks"
+alias cdww="cd $HOME/Brian_Code/waterworks-project/src/waterworks"
+alias cdtrmnl="cd $HOME/Brian_Code/trmnl-project/src/trmnl"
+## Monorepos
+### Root
+alias cdsiphon="cd $HOME/Brian_Code/siphon"
+alias cdheadwater="cd $HOME/Brian_Code/headwater"
+### Subrepos
+alias hdwa="cd $HOME/Brian_Code/headwater/headwater-api/src/headwater_api"
+alias hdwc="cd $HOME/Brian_Code/headwater/headwater-client/src/headwater_client"
+alias hdws="cd $HOME/Brian_Code/headwater/headwater-server/src/headwater_server"
+alias siphona="cd $HOME/Brian_Code/siphon/siphon-api/src/siphon_api"
+alias siphonc="cd $HOME/Brian_Code/siphon/siphon-client/src/siphon_client"
+alias siphons="cd $HOME/Brian_Code/siphon/siphon-server/src/siphon_server"
+alias update_examples="cp example.py $BC/siphon/siphon-server/src/siphon_server && cp example.py $BC/siphon/siphon-api/src/siphon_api" # Run this from $BC/siphon/siphon-client/src/siphon_client
+## Dotfiles
+alias dotfiles='cd $HOME/.dotfiles && git status'
+alias dotpush='cd $HOME/.dotfiles && git add . && git commit -m "$(date +%Y-%m-%d)" && git push'
+alias dotpull="cd $HOME/.dotfiles && git pull && exec $SHELL -l"
+## Obsidian vault
+alias morphypull="cd $HOME/morphy && git pull"
+alias morphypush='cd $HOME/morphy && git add . && git commit -m "$(date +%Y-%m-%d)" && git push'
+## Password store
+alias passpull="cd $HOME/.password-store && git pull"
+alias passpush='cd $HOME/.password-store && git add . && git commit -m "$(date +%Y-%m-%d)" && git push'
+## SSH aliases
+alias alphablue="ssh alphablue"
+alias botvinnik="ssh botvinnik"
+alias caruana="ssh caruana"
+alias cheet="ssh cheet"
+alias gotham="ssh gotham"
+alias larsen="ssh larsen"
+alias otis="ssh otis"
+alias petrosian="ssh petrosian"
+alias spassky="ssh spassky"
+alias sshconfig="nvim $HOME/.ssh/config"
+## Networking
+alias mc="mullvad connect"
+alias mcd="mullvad disconnect"
+alias ms="mullvad status"
+
+# Dev aliases
+## Python aliases
+alias p="python"
+alias pi="python -i"
+alias ptime="python -X importtime"
+alias pydoc="python -m pydoc"
+alias pyp="cdr && v pyproject.toml" # Open pyproject.toml in current repo
+alias pytest="python -m pytest"
+alias tip="touch __init__.py"
+alias torchver="uv run python -c \"import torch; print(torch.__version__)\""
+alias typ="touch py.typed"
+alias ue="uv tool install --editable ."
+alias us="uv sync --editable --dev"
+alias vd="deactivate"                              # Deactivate venv
+alias vnv="source .venv/bin/activate" # Activate venv, though note that we have direnv for this
+## Python logging aliases
+alias pdebug="PYTHON_LOG_LEVEL=3 python"
+alias pinfo="PYTHON_LOG_LEVEL=2 python"
+alias pwarning="PYTHON_LOG_LEVEL=1 python"
+## git 
+alias ga="git add ."
+alias gb="git branch"
+alias gc="git commit -m "
+alias gi="git init"
+alias gl="git log --oneline --graph --decorate -20"
+alias gp="git pull"
+alias gpush="git push"
+alias grc="git rebase --continue"
+alias gs="git status"
+## git shell scripts
+alias gitall="git_all"
+alias gitstatus="git_status"
+alias gita="git_all"
+alias gits="git_status"
+
+# System aliases
+## Remappings (these default to bash; for zsh overwrite these in .custom_aliases)
+alias clip="xclip -selection clipboard"
+alias da="direnv allow"
+alias src="exec $SHELL -l"
+alias szp="source ~/.bash_profile"
+alias tailf="clear && tail -f"
+alias val="nvim $HOME/.aliases"
+alias vex="nvim $HOME/.exports"
+alias vcal="nvim $HOME/.custom_aliases"
+alias vcex="nvim $HOME/.custom_exports"
+alias vrc="nvim $HOME/.bashrc"
+alias vzp="nvim $HOME/.bash_profile"
+## Package manager updates
+alias aptup="sudo apt update && sudo apt upgrade -y"  
+alias brewup="brew update && brew upgrade && brew cleanup"
+alias dnfup="sudo dnf upgrade --refresh -y"
+# Other remappings
+alias clauded="claude --dangerously-skip-permissions"
+alias dc="docker compose"
+alias dcup="docker compose up --build"
+alias locate_up="sudo /usr/libexec/locate.updatedb" # Update locate database
+alias ls="ls --color=auto"
+alias panpdf='pandoc v1.md -o v1_inter.pdf \
+  --pdf-engine=xelatex \
+  -V mainfont="Inter" \
+  -V geometry="margin=0.75in" \
+  -V linestretch=1.2 \
+  -V indent=false \
+  -V header-includes="\usepackage{parskip}"'
+alias psql="psql -d postgres"
+alias tre='tree -aC -I '\''.git|node_modules|.venv|__pycache__|.pytest_cache'\'' --dirsfirst -L 3'
+alias treep=" tree -I '__pycache__|*.pyc|*.egg-info|.pytest_cache'" # Pretty tree with colors, ignoring common Python dirs/files
+alias v=nvim
+alias vim=nvim
+alias gr="ghostty --reload-config"  # Reload ghostty config
+alias wgup="sudo nmcli connection up wg0"  # Bring up WireGuard VPN2
+alias wgdown="sudo nmcli connection down wg0"  # Bring down WireGuard VPN
+
+# Project-specific
+## Haddock
+alias haddock="python -i -c \"from haddock import Table;\""
+## Siphon
+alias siphon-debug="SIPHON_LOG_LEVEL=3 python -m siphon_server"
+alias siphon-nocache="SIPHON_CACHE=false python -m siphon_server"
+alias siphon-haiku="SIPHON_DEFAULT_MODEL=haiku python -m siphon_server"
+alias siphon-test="LOG_LEVEL=3 CACHE=false python -m siphon_server"
+## Tap
+#
+#
+#
+
+# Convenience aliases
+alias sizeof="du -sh * | sort -h"              # Directory sizes sorted
+alias fnd='find . -iname "*$1*" 2>/dev/null'   # Case-insensitive find
+alias publicip="curl -s https://ifconfig.me -4"       # Public IP
+alias localip="ip addr show | grep 'inet ' | grep -v 127.0.0.1 | awk '{print \$2}' | cut -d/ -f1"  # Local IP
+alias ports="ss -tulanp"                       # Show listening ports
+alias memtop="ps auxf | sort -nr -k 4 | head -10"  # Top memory consumers
+alias cputop="ps auxf | sort -nr -k 3 | head -10"  # Top CPU consumers
+alias h="history | grep"                       # Search history
+alias hh="history | awk '{print \$2}' | sort | uniq -c | sort -rn | head -20"  # Most used commands
+alias now="date '+%Y-%m-%d %H:%M:%S'"      # Current date/time formatted
+
+# Work
+alias trinoc="captain setup trino"
+
+# Source custom aliases if the file exists (for machine-specific aliases / overrides)
+if [ -f ~/.custom_aliases ]; then
+    source ~/.custom_aliases
+fi

@@ -1,0 +1,27 @@
+# .exports — VM-adapted subset (macOS-specific paths removed)
+
+# PATH additions
+export PATH="$HOME/.local/bin:$PATH"
+
+# Directory shortcuts
+export BC="$HOME/Brian_Code"
+export BLOG="$HOME/blog"
+export DOT="$HOME/.dotfiles"
+export DOWNLOADS="$HOME/Downloads"
+export MORPHY="$HOME/morphy"
+export NAS="/mnt/nas"
+export PICTURES="$HOME/Pictures"
+export SANDBOX="$HOME/Brian_Code/sandbox"
+export SCRIPTS="$HOME/.local/bin"
+export VIBE="$HOME/vibe"
+
+# Editor / tool config
+export EDITOR="nvim"
+export SUDO_EDITOR="nvim"
+export GIT_MERGE_TOOL=nvim
+export TERM="xterm-256color"
+
+# Source custom exports if the file exists (machine-specific overrides)
+if [ -f ~/.custom_exports ]; then
+    source ~/.custom_exports
+fi
