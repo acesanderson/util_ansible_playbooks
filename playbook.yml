@@ -1,10 +1,18 @@
 ---
-# Provision bianders-ld1.linkedin.biz (CBL-Mariner 2.0)
+# Provision dev environments across multiple hosts.
 # Idempotent: safe to re-run at any time.
 #
+# Hosts:
+#   local.ini   [mariner]  localhost:2222        CBL-Mariner 2.0  x86_64   Docker test
+#   prod.ini    [mariner]  dev (Azure)           CBL-Mariner 2.0  x86_64   LinkedIn VM
+#   nimzo.ini   [ubuntu]   nimzo (Hetzner VPS)   Ubuntu 24.04     x86_64   root user
+#   jetson.ini  [jetson]   cheet-ip              Ubuntu 20.04     aarch64  L4T/Tegra; needs --ask-become-pass
+#
 # Usage:
-#   Local test:  ansible-playbook -i inventory/local.ini playbook.yml
-#   Production:  ansible-playbook -i inventory/prod.ini playbook.yml
+#   ansible-playbook -i inventory/local.ini   playbook.yml
+#   ansible-playbook -i inventory/prod.ini    playbook.yml
+#   ansible-playbook -i inventory/nimzo.ini   playbook.yml
+#   ansible-playbook -i inventory/jetson.ini  playbook.yml --ask-become-pass
 #
 # Prerequisites on controller: ansible, sshpass (for local password auth)
 #   uv tool install ansible
@@ -20,11 +28,18 @@
 
     # ── Packages ────────────────────────────────────────────────────────────
 
-    - name: Install base packages via tdnf
-      ansible.builtin.command: tdnf install -y tmux git curl tar gzip ca-certificates
+    - name: Install base packages
+      ansible.builtin.package:
+        name:
+          - tmux
+          - git
+          - curl
+          - tar
+          - gzip
+          - ca-certificates
+          - gcc
+        state: present
       become: true
-      register: tdnf_base
-      changed_when: "'Nothing to do' not in tdnf_base.stdout"
 
     # ── neovim binary ────────────────────────────────────────────────────────
     # Not in Mariner tdnf repos — install from GitHub release binary.
@@ -153,10 +168,14 @@
         mode: '0755'
 
     - name: Deploy nvim config from dotfiles
-      ansible.builtin.copy:
+      ansible.posix.synchronize:
         src: "{{ dotfiles }}/nvim/.config/nvim/"
         dest: "{{ ansible_env.HOME }}/.config/nvim/"
-        mode: preserve
+        archive: true
+        delete: false
+        rsync_opts:
+          - "--exclude=__pycache__"
+          - "--exclude=*.pyc"
 
     - name: Disable python module in init.lua (python dev tooling not present on VM)
       ansible.builtin.lineinfile:
@@ -192,6 +211,401 @@
     - name: Display podman version
       ansible.builtin.debug:
         msg: "{{ podman_version_out.stdout | default('podman not found — may need: tdnf install -y moby-engine or podman') }}"
+
+    # ── Summary ──────────────────────────────────────────────────────────────
+
+    - name: Provisioning complete
+      ansible.builtin.debug:
+        msg:
+          - "Provisioning complete."
+          - "Open a new shell (or: source ~/.bash_profile) to activate dotfiles."
+          - "First tmux attach will start the 'main' session."
+          - "First nvim launch will bootstrap lazy.nvim (requires internet)."
+
+# ── Ubuntu (Hetzner VPS / nimzo — Ubuntu 24.04 LTS / x86_64) ────────────────
+# Run with: ansible-playbook -i inventory/nimzo.ini playbook.yml
+# Connects as root — become: true is harmless but a no-op.
+
+- name: Provision Ubuntu dev environment
+  hosts: ubuntu
+  vars:
+    dotfiles: "{{ lookup('env', 'HOME') }}/.dotfiles"
+
+  tasks:
+
+    # ── Packages ────────────────────────────────────────────────────────────
+
+    - name: Install base packages
+      ansible.builtin.package:
+        name:
+          - tmux
+          - git
+          - curl
+          - tar
+          - gzip
+          - ca-certificates
+          - gcc
+        state: present
+      become: true
+
+    # ── neovim binary ────────────────────────────────────────────────────────
+    # Not in Ubuntu 24.04 repos at a usable version — install from GitHub release.
+
+    - name: Check if nvim is already installed
+      ansible.builtin.stat:
+        path: /usr/local/bin/nvim
+      register: nvim_bin
+
+    - name: Set neovim architecture string
+      ansible.builtin.set_fact:
+        nvim_arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'x86_64' }}"
+      when: not nvim_bin.stat.exists
+
+    - name: Download neovim release tarball
+      ansible.builtin.shell: >
+        curl -fsSL
+        "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-{{ nvim_arch }}.tar.gz"
+        -o /tmp/nvim.tar.gz
+      when: not nvim_bin.stat.exists
+
+    - name: Extract neovim to /opt
+      ansible.builtin.unarchive:
+        src: /tmp/nvim.tar.gz
+        dest: /opt/
+        remote_src: true
+      become: true
+      when: not nvim_bin.stat.exists
+
+    - name: Symlink nvim into /usr/local/bin
+      ansible.builtin.file:
+        src: "/opt/nvim-linux-{{ nvim_arch }}/bin/nvim"
+        dest: /usr/local/bin/nvim
+        state: link
+      become: true
+      when: not nvim_bin.stat.exists
+
+    - name: Check neovim version
+      ansible.builtin.command: nvim --version
+      register: nvim_version_out
+      changed_when: false
+      failed_when: false
+
+    - name: Display neovim version
+      ansible.builtin.debug:
+        msg: "{{ nvim_version_out.stdout_lines[0] | default('nvim not found') }}"
+
+    # ── uv ──────────────────────────────────────────────────────────────────
+
+    - name: Check if uv is installed
+      ansible.builtin.stat:
+        path: "{{ ansible_env.HOME }}/.local/bin/uv"
+      register: uv_stat
+
+    - name: Install uv via install script
+      ansible.builtin.shell: curl -LsSf https://astral.sh/uv/install.sh | sh
+      args:
+        executable: /bin/bash
+      when: not uv_stat.stat.exists
+
+    # ── Bash dotfiles ────────────────────────────────────────────────────────
+
+    - name: Deploy bash dotfiles
+      ansible.builtin.copy:
+        src: "files/bash/{{ item }}"
+        dest: "{{ ansible_env.HOME }}/{{ item }}"
+        mode: '0644'
+        backup: true
+      loop:
+        - .bash_profile
+        - .bashrc
+        - .aliases
+        - .exports
+        - .functions
+
+    - name: Add tmux auto-attach block to .bash_profile
+      ansible.builtin.blockinfile:
+        path: "{{ ansible_env.HOME }}/.bash_profile"
+        marker: "# {mark} ANSIBLE MANAGED: tmux auto-attach"
+        block: |
+          # Auto-attach or create a persistent tmux session named 'main'
+          if command -v tmux &>/dev/null && [ -z "$TMUX" ]; then
+              tmux attach-session -t main 2>/dev/null || tmux new-session -s main
+          fi
+
+    # ── tmux ────────────────────────────────────────────────────────────────
+
+    - name: Create tmux plugin directory
+      ansible.builtin.file:
+        path: "{{ ansible_env.HOME }}/.config/tmux/plugins"
+        state: directory
+        mode: '0755'
+
+    - name: Deploy tmux.conf
+      ansible.builtin.copy:
+        src: files/tmux/tmux.conf
+        dest: "{{ ansible_env.HOME }}/.config/tmux/tmux.conf"
+        mode: '0644'
+        backup: true
+
+    - name: Deploy tpm (tmux plugin manager) from dotfiles
+      ansible.builtin.copy:
+        src: "{{ dotfiles }}/tmux/.config/tmux/plugins/tpm/"
+        dest: "{{ ansible_env.HOME }}/.config/tmux/plugins/tpm/"
+        mode: preserve
+
+    - name: Deploy tmux-sensible plugin from dotfiles
+      ansible.builtin.copy:
+        src: "{{ dotfiles }}/tmux/.config/tmux/plugins/tmux-sensible/"
+        dest: "{{ ansible_env.HOME }}/.config/tmux/plugins/tmux-sensible/"
+        mode: preserve
+
+    # ── neovim config ────────────────────────────────────────────────────────
+
+    - name: Create nvim config directory
+      ansible.builtin.file:
+        path: "{{ ansible_env.HOME }}/.config/nvim"
+        state: directory
+        mode: '0755'
+
+    - name: Deploy nvim config from dotfiles
+      ansible.posix.synchronize:
+        src: "{{ dotfiles }}/nvim/.config/nvim/"
+        dest: "{{ ansible_env.HOME }}/.config/nvim/"
+        archive: true
+        delete: false
+        rsync_opts:
+          - "--exclude=__pycache__"
+          - "--exclude=*.pyc"
+
+    - name: Disable python module in init.lua (python dev tooling not present on server)
+      ansible.builtin.lineinfile:
+        path: "{{ ansible_env.HOME }}/.config/nvim/init.lua"
+        regexp: '^require\("python"\)'
+        line: '-- require("python")  -- disabled on server'
+
+    # ── git config ───────────────────────────────────────────────────────────
+
+    - name: Deploy .gitconfig
+      ansible.builtin.copy:
+        src: files/git/.gitconfig
+        dest: "{{ ansible_env.HOME }}/.gitconfig"
+        mode: '0644'
+        backup: true
+
+    - name: Deploy .gitignore_global
+      ansible.builtin.copy:
+        src: files/git/.gitignore_global
+        dest: "{{ ansible_env.HOME }}/.gitignore_global"
+        mode: '0644'
+
+    # ── Podman ───────────────────────────────────────────────────────────────
+
+    - name: Verify podman is available
+      ansible.builtin.command: podman --version
+      register: podman_version_out
+      changed_when: false
+      failed_when: false
+
+    - name: Display podman version
+      ansible.builtin.debug:
+        msg: "{{ podman_version_out.stdout | default('podman not found — install with: sudo apt install podman') }}"
+
+    # ── Summary ──────────────────────────────────────────────────────────────
+
+    - name: Provisioning complete
+      ansible.builtin.debug:
+        msg:
+          - "Provisioning complete."
+          - "Open a new shell (or: source ~/.bash_profile) to activate dotfiles."
+          - "First tmux attach will start the 'main' session."
+          - "First nvim launch will bootstrap lazy.nvim (requires internet)."
+
+# ── Jetson Orin Nano (Ubuntu 20.04 LTS / L4T / aarch64) ─────────────────────
+# Run with: ansible-playbook -i inventory/jetson.ini playbook.yml --ask-become-pass
+# cheet user does not have passwordless sudo.
+
+- name: Provision Jetson Orin Nano dev environment
+  hosts: jetson
+  vars:
+    dotfiles: "{{ lookup('env', 'HOME') }}/.dotfiles"
+
+  tasks:
+
+    # ── Packages ────────────────────────────────────────────────────────────
+    # ansible.builtin.apt requires python3-apt compiled for the target Python.
+    # On Ubuntu 20.04, only the Python 3.8 bindings are available; there are no
+    # 3.9 bindings in the Focal repos. Use command + apt-get directly instead.
+
+    - name: Install base packages
+      ansible.builtin.command:
+        cmd: apt-get install -y tmux git curl tar gzip ca-certificates gcc
+      become: true
+      register: apt_output
+      changed_when: "'newly installed' in apt_output.stdout"
+
+    # ── neovim binary ────────────────────────────────────────────────────────
+    # Not in Ubuntu 20.04 repos at a usable version — install from GitHub release.
+    # Orin Nano is aarch64, so nvim_arch resolves to arm64.
+
+    - name: Check if nvim is already installed
+      ansible.builtin.stat:
+        path: /usr/local/bin/nvim
+      register: nvim_bin
+
+    - name: Set neovim architecture string
+      ansible.builtin.set_fact:
+        nvim_arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'x86_64' }}"
+      when: not nvim_bin.stat.exists
+
+    - name: Download neovim release tarball
+      ansible.builtin.shell: >
+        curl -fsSL
+        "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-{{ nvim_arch }}.tar.gz"
+        -o /tmp/nvim.tar.gz
+      when: not nvim_bin.stat.exists
+
+    - name: Extract neovim to /opt
+      ansible.builtin.unarchive:
+        src: /tmp/nvim.tar.gz
+        dest: /opt/
+        remote_src: true
+      become: true
+      when: not nvim_bin.stat.exists
+
+    - name: Symlink nvim into /usr/local/bin
+      ansible.builtin.file:
+        src: "/opt/nvim-linux-{{ nvim_arch }}/bin/nvim"
+        dest: /usr/local/bin/nvim
+        state: link
+      become: true
+      when: not nvim_bin.stat.exists
+
+    - name: Check neovim version
+      ansible.builtin.command: nvim --version
+      register: nvim_version_out
+      changed_when: false
+      failed_when: false
+
+    - name: Display neovim version
+      ansible.builtin.debug:
+        msg: "{{ nvim_version_out.stdout_lines[0] | default('nvim not found') }}"
+
+    # ── uv ──────────────────────────────────────────────────────────────────
+
+    - name: Check if uv is installed
+      ansible.builtin.stat:
+        path: "{{ ansible_env.HOME }}/.local/bin/uv"
+      register: uv_stat
+
+    - name: Install uv via install script
+      ansible.builtin.shell: curl -LsSf https://astral.sh/uv/install.sh | sh
+      args:
+        executable: /bin/bash
+      when: not uv_stat.stat.exists
+
+    # ── Bash dotfiles ────────────────────────────────────────────────────────
+
+    - name: Deploy bash dotfiles
+      ansible.builtin.copy:
+        src: "files/bash/{{ item }}"
+        dest: "{{ ansible_env.HOME }}/{{ item }}"
+        mode: '0644'
+        backup: true
+      loop:
+        - .bash_profile
+        - .bashrc
+        - .aliases
+        - .exports
+        - .functions
+
+    - name: Add tmux auto-attach block to .bash_profile
+      ansible.builtin.blockinfile:
+        path: "{{ ansible_env.HOME }}/.bash_profile"
+        marker: "# {mark} ANSIBLE MANAGED: tmux auto-attach"
+        block: |
+          # Auto-attach or create a persistent tmux session named 'main'
+          if command -v tmux &>/dev/null && [ -z "$TMUX" ]; then
+              tmux attach-session -t main 2>/dev/null || tmux new-session -s main
+          fi
+
+    # ── tmux ────────────────────────────────────────────────────────────────
+
+    - name: Create tmux plugin directory
+      ansible.builtin.file:
+        path: "{{ ansible_env.HOME }}/.config/tmux/plugins"
+        state: directory
+        mode: '0755'
+
+    - name: Deploy tmux.conf
+      ansible.builtin.copy:
+        src: files/tmux/tmux.conf
+        dest: "{{ ansible_env.HOME }}/.config/tmux/tmux.conf"
+        mode: '0644'
+        backup: true
+
+    - name: Deploy tpm (tmux plugin manager) from dotfiles
+      ansible.builtin.copy:
+        src: "{{ dotfiles }}/tmux/.config/tmux/plugins/tpm/"
+        dest: "{{ ansible_env.HOME }}/.config/tmux/plugins/tpm/"
+        mode: preserve
+
+    - name: Deploy tmux-sensible plugin from dotfiles
+      ansible.builtin.copy:
+        src: "{{ dotfiles }}/tmux/.config/tmux/plugins/tmux-sensible/"
+        dest: "{{ ansible_env.HOME }}/.config/tmux/plugins/tmux-sensible/"
+        mode: preserve
+
+    # ── neovim config ────────────────────────────────────────────────────────
+
+    - name: Create nvim config directory
+      ansible.builtin.file:
+        path: "{{ ansible_env.HOME }}/.config/nvim"
+        state: directory
+        mode: '0755'
+
+    - name: Deploy nvim config from dotfiles
+      ansible.posix.synchronize:
+        src: "{{ dotfiles }}/nvim/.config/nvim/"
+        dest: "{{ ansible_env.HOME }}/.config/nvim/"
+        archive: true
+        delete: false
+        rsync_opts:
+          - "--exclude=__pycache__"
+          - "--exclude=*.pyc"
+
+    - name: Disable python module in init.lua (python dev tooling not present on device)
+      ansible.builtin.lineinfile:
+        path: "{{ ansible_env.HOME }}/.config/nvim/init.lua"
+        regexp: '^require\("python"\)'
+        line: '-- require("python")  -- disabled on device'
+
+    # ── git config ───────────────────────────────────────────────────────────
+
+    - name: Deploy .gitconfig
+      ansible.builtin.copy:
+        src: files/git/.gitconfig
+        dest: "{{ ansible_env.HOME }}/.gitconfig"
+        mode: '0644'
+        backup: true
+
+    - name: Deploy .gitignore_global
+      ansible.builtin.copy:
+        src: files/git/.gitignore_global
+        dest: "{{ ansible_env.HOME }}/.gitignore_global"
+        mode: '0644'
+
+    # ── Podman ───────────────────────────────────────────────────────────────
+    # Not pre-installed on Ubuntu 20.04. Verify only; install manually if needed.
+
+    - name: Verify podman is available
+      ansible.builtin.command: podman --version
+      register: podman_version_out
+      changed_when: false
+      failed_when: false
+
+    - name: Display podman version
+      ansible.builtin.debug:
+        msg: "{{ podman_version_out.stdout | default('podman not found — install with: sudo apt install podman') }}"
 
     # ── Summary ──────────────────────────────────────────────────────────────
 
